@@ -1,0 +1,9 @@
+[build]
+  base = "client"
+  publish = "client/dist"   # or "client/build" depending on Vite / CRA
+  command = "npm run build"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Environment files (never commit)
+.env
+.env.local
+.env.production
+
+# Build artifacts
+dist/
+build/
+
+# Prisma SQLite/Local test DBs (if any)
+*.db
+*.db-journal
+
+# OS & Editor files
+.DS_Store
+.vscode/
