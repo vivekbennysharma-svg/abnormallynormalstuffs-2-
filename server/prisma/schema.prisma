@@ -1,0 +1,169 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  AUTHOR
+  MODERATOR
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+enum ModerationActionType {
+  HIDE_POST
+  RESTORE_POST
+  DISMISS_REPORT
+}
+
+// 1. User
+model User {
+  id                String             @id @default(uuid())
+  googleId          String             @unique
+  email             String             @unique
+  name              String
+  avatarUrl         String?
+  role              Role               @default(AUTHOR)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  posts             Post[]
+  comments          Comment[]
+  reports           Report[]
+  moderationActions ModerationAction[]
+  aiQuotes          AIQuoteGeneration[]
+
+  @@index([email])
+}
+
+// 2. Post
+model Post {
+  id             String         @id @default(uuid())
+  title          String
+  slug           String         @unique
+  body           String
+  status         PostStatus     @default(DRAFT)
+  authorId       String
+  author         User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  categories     PostCategory[]
+  tags           PostTag[]
+  comments       Comment[]
+  reports        Report[]
+
+  @@index([authorId])
+  @@index([status, createdAt])
+}
+
+// 3. Category
+model Category {
+  id        String         @id @default(uuid())
+  name      String         @unique
+  slug      String         @unique
+  posts     PostCategory[]
+}
+
+// 4. PostCategory (Many-to-Many Join)
+model PostCategory {
+  postId     String
+  categoryId String
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([postId, categoryId])
+}
+
+// 5. Tag
+model Tag {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  slug      String    @unique
+  posts     PostTag[]
+}
+
+// 6. PostTag (Many-to-Many Join)
+model PostTag {
+  postId String
+  tagId  String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+}
+
+// 7. Comment
+model Comment {
+  id        String    @id @default(uuid())
+  body      String
+  postId    String
+  userId    String
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  reports   Report[]
+
+  @@index([postId])
+}
+
+// 8. Report
+model Report {
+  id          String       @id @default(uuid())
+  reason      String
+  status      ReportStatus @default(PENDING)
+  reporterId  String
+  postId      String?
+  commentId   String?
+  reporter    User         @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  post        Post?        @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment     Comment?     @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  moderationActions ModerationAction[]
+
+  @@index([status])
+}
+
+// 9. ModerationAction
+model ModerationAction {
+  id          String               @id @default(uuid())
+  action      ModerationActionType
+  reason      String?
+  moderatorId String
+  reportId    String?
+  moderator   User                 @relation(fields: [moderatorId], references: [id], onDelete: Cascade)
+  report      Report?              @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  createdAt   DateTime             @default(now())
+
+  @@index([moderatorId])
+}
+
+// 10. AIQuoteGeneration
+model AIQuoteGeneration {
+  id         String   @id @default(uuid())
+  prompt     String
+  output     String
+  provider   String   @default("gemini")
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
