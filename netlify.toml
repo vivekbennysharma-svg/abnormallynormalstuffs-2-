@@ -1,7 +1,7 @@
 [build]
   base = "client"
-  publish = "client/dist"   # or "client/build" depending on Vite / CRA
   command = "npm run build"
+  publish = "dist"
 
 [[redirects]]
   from = "/*"
