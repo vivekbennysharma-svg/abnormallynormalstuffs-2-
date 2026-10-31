@@ -13,16 +13,31 @@ interface PostSummary {
   tags: { tag: { name: string } }[];
 }
 
+const EMOJIS = ['📝', '🌿', '💡', '☕', '🔭', '🎧', '📚', '🌙'];
+const emojiFor = (title: string) => EMOJIS[title.length % EMOJIS.length];
+
 export const PostList: React.FC = () => {
   const [posts, setPosts] = useState<PostSummary[]>([]);
+  const [categories, setCategories] = useState<{ name: string; slug: string }[]>([]);
+  const [activeCategory, setActiveCategory] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const fetchPosts = async (query = '') => {
+  const fetchPosts = async (query = '', category = '') => {
     setLoading(true);
     try {
-      const res = await api.get(`/posts?search=${encodeURIComponent(query)}`);
-      setPosts(res.data.posts);
+      const res = await api.get(
+        `/posts?search=${encodeURIComponent(query)}&category=${encodeURIComponent(category)}`
+      );
+      const list: PostSummary[] = res.data.posts;
+      setPosts(list);
+
+      // build the filter pills from the unfiltered list
+      if (!category) {
+        const map = new Map<string, { name: string; slug: string }>();
+        list.forEach((p) => p.categories.forEach((c) => map.set(c.category.slug, c.category)));
+        setCategories([...map.values()]);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -36,49 +51,86 @@ export const PostList: React.FC = () => {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchPosts(search);
+    fetchPosts(search, activeCategory);
+  };
+
+  const pickCategory = (slug: string) => {
+    setActiveCategory(slug);
+    fetchPosts(search, slug);
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '2rem auto', padding: '0 1rem', fontFamily: 'sans-serif' }}>
-      <form onSubmit={handleSearchSubmit} style={{ marginBottom: '2rem', display: 'flex', gap: '0.5rem' }}>
-        <input
-          type="text"
-          placeholder="Search published posts..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
-        />
-        <button type="submit" style={{ padding: '0.6rem 1.2rem', cursor: 'pointer' }}>Search</button>
+    <div>
+      <header className="hero-intro-header">
+        <h1>Ordinary things, written down.</h1>
+        <p>Browse the latest published posts.</p>
+      </header>
+
+      <form className="search-controls-wrapper" onSubmit={handleSearchSubmit}>
+        <div className="search-row">
+          <input
+            type="text"
+            placeholder="Search published posts..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <button type="submit" className="action-submit-btn">Search</button>
+        </div>
       </form>
 
+      {categories.length > 0 && (
+        <div className="category-filter-row">
+          <button
+            type="button"
+            className={`category-filter-pill ${activeCategory === '' ? 'active' : ''}`}
+            onClick={() => pickCategory('')}
+          >
+            All
+          </button>
+          {categories.map((c) => (
+            <button
+              key={c.slug}
+              type="button"
+              className={`category-filter-pill ${activeCategory === c.slug ? 'active' : ''}`}
+              onClick={() => pickCategory(c.slug)}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="section-label">Latest posts</div>
+
       {loading ? (
-        <p>Loading posts...</p>
+        <p className="state-text">Loading posts...</p>
       ) : posts.length === 0 ? (
-        <p>No posts found.</p>
+        <p className="state-text">No posts found.</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div className="posts-grid-mesh">
           {posts.map((post) => (
-            <article key={post.id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1.5rem' }}>
-              <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.5rem' }}>
-                By {post.author.name} • {new Date(post.createdAt).toLocaleDateString()}
-              </div>
-              <h2 style={{ margin: '0 0 0.5rem 0' }}>
-                <Link to={`/posts/${post.slug}`} style={{ textDecoration: 'none', color: '#0f172a' }}>
-                  {post.title}
-                </Link>
-              </h2>
-              <p style={{ color: '#334155', lineHeight: 1.6 }}>
-                {post.body.slice(0, 160)}...
-              </p>
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                {post.tags.map((t) => (
-                  <span key={t.tag.name} style={{ background: '#f1f5f9', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem' }}>
-                    #{t.tag.name}
-                  </span>
-                ))}
-              </div>
-            </article>
+            <Link key={post.id} to={`/posts/${post.slug}`} className="card-link">
+              <article className="blog-hover-card" style={{ height: '100%' }}>
+                <div className="card-graphics-header">{emojiFor(post.title)}</div>
+
+                <div className="pill-row">
+                  {post.categories.map((c) => (
+                    <span key={c.category.slug} className="pill-tag">{c.category.name}</span>
+                  ))}
+                  {post.tags.map((t) => (
+                    <span key={t.tag.name} className="pill-tag">#{t.tag.name}</span>
+                  ))}
+                </div>
+
+                <h3>{post.title}</h3>
+                <p className="card-excerpt-text">{post.body.slice(0, 140)}...</p>
+
+                <div className="card-meta-row">
+                  <span>By {post.author.name}</span>
+                  <span>{new Date(post.createdAt).toLocaleDateString()}</span>
+                </div>
+              </article>
+            </Link>
           ))}
         </div>
       )}
