@@ -44,4 +44,14 @@ router.get('/summary', authenticate, requireRole([Role.MODERATOR]), async (_req,
   }
 });
 
+router.get('/post-view', authenticate, requireRole([Role.MODERATOR]), async (_req, res) => {
+  try {
+    const stats = await prisma.$queryRaw`SELECT * FROM "PostAnalyticsView" ORDER BY "reportCount" DESC LIMIT 10;`;
+    res.json({ stats });
+  } catch (err: any) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to query analytics view' });
+  }
+});
+
 export default router;
